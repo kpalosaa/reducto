@@ -21,14 +21,32 @@ namespace Reducto
         State GetState();
     }
 
-    public class Store<State>
-    {
+	public interface IDispatcher<State>
+	{
+		void Dispatch(Object action);
+		Task<Result> Dispatch<Result>(Store<State>.AsyncAction<Result> action);
+		Task Dispatch(Store<State>.AsyncAction action);
+		Task<Result> Dispatch<Result>(Store<State>.IAsyncAction<Result> action);
+		Task Dispatch(Store<State>.IAsyncAction action);
+	}
+
+	public class Store<State> : IDispatcher<State>
+	{
         public delegate State GetStateDelegate();
         public delegate Task AsyncAction(DispatcherDelegate dispatcher, GetStateDelegate getState);
         public delegate Task<Result> AsyncAction<Result>(DispatcherDelegate dispatcher, GetStateDelegate getState);
         public delegate AsyncAction<Result> AsyncActionNeedsParam<T, Result>(T param); 
         public delegate AsyncAction AsyncActionNeedsParam<T>(T param);
 
+		public interface IAsyncAction<Result>
+		{
+			Task<Result> Dispatch(IDispatcher<State> dispatcher, GetStateDelegate getState);
+		}
+
+		public interface IAsyncAction
+		{
+			Task Dispatch(IDispatcher<State> dispatcher, GetStateDelegate getState);
+		}
 
         private readonly BasicStore store;
         private MiddlewareExecutor middlewares;
@@ -66,6 +84,16 @@ namespace Reducto
         {
             return action(Dispatch, GetState);
         }
+
+		public Task<Result> Dispatch<Result>(IAsyncAction<Result> action)
+		{
+			return action.Dispatch(this, GetState);
+		}
+
+		public Task Dispatch(IAsyncAction action)
+		{
+			return action.Dispatch(this, GetState);
+		}
 
         public AsyncActionNeedsParam<T, Result> asyncAction<T, Result>(
             Func<DispatcherDelegate, GetStateDelegate, T, Task<Result>> action)
